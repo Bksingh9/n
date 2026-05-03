@@ -11,7 +11,11 @@ const Schema = z.object({
   email: z.string().email(),
   password: z.string().min(8, 'Use at least 8 characters'),
   full_name: z.string().min(1).max(120).optional(),
+  next: z.string().optional(),
 });
+
+const safeNext = (n: string | undefined, fallback: string) =>
+  n && n.startsWith('/') ? n : fallback;
 
 async function signUpAction(formData: FormData) {
   'use server';
@@ -24,10 +28,10 @@ async function signUpAction(formData: FormData) {
     options: { data: { full_name: parsed.data.full_name ?? '' } },
   });
   if (error) redirect(`/sign-up?error=${encodeURIComponent(error.message)}`);
-  redirect('/app/onboarding');
+  redirect(safeNext(parsed.data.next, '/onboarding'));
 }
 
-export default async function SignUpPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function SignUpPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string }> }) {
   const params = await searchParams;
   return (
     <Card>
@@ -37,6 +41,7 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
       </CardHeader>
       <CardContent>
         <form action={signUpAction} className="space-y-4">
+          {params.next && <input type="hidden" name="next" value={params.next} />}
           <div className="space-y-1.5">
             <Label htmlFor="full_name">Your name</Label>
             <Input id="full_name" name="full_name" required maxLength={120} />

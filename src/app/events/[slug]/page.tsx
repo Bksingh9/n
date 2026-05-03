@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { createServiceClient } from '@/lib/supabase/server';
 import { formatDate } from '@/lib/utils';
+import { getBrandForEvent } from '@/lib/services/brands';
 
 // Public event landing. Only safe public fields are read here using the
 // service role with an explicit allowlist of columns.
@@ -19,11 +20,20 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
     .maybeSingle();
   if (!event) notFound();
   const open = event.status === 'published' || event.status === 'live';
+  const brand = await getBrandForEvent(event.id);
+  const brandColor = brand?.primary_color ?? null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/40">
-      <header className="container-px py-6 max-w-3xl mx-auto">
-        <Link href="/" className="text-sm font-semibold">DateOps Live</Link>
+    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/40" style={brandColor ? { borderTop: `4px solid ${brandColor}` } : undefined}>
+      <header className="container-px py-6 max-w-3xl mx-auto flex items-center justify-between">
+        <Link href="/" className="text-sm font-semibold flex items-center gap-2">
+          {brand?.logo_url
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={brand.logo_url} alt={brand.name} className="h-7 w-auto" />
+            : null}
+          {brand?.name ?? 'DateOps Live'}
+        </Link>
+        {brand?.tagline && <span className="text-xs text-muted-foreground hidden sm:block">{brand.tagline}</span>}
       </header>
       <main className="container-px py-8 max-w-3xl mx-auto space-y-6">
         <Card>

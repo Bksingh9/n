@@ -2,9 +2,12 @@ import { notFound, redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 import { requireOrg } from '@/lib/auth';
 import { createServiceClient } from '@/lib/supabase/server';
 import { setAttendeeStatus } from '@/lib/services/attendees';
+import { planFeatures } from '@/lib/roles';
+import type { PlanId } from '@/lib/plans';
 
 export default async function AttendeesPage({ params }: { params: Promise<{ eventId: string }> }) {
   const ctx = await requireOrg();
@@ -33,10 +36,19 @@ export default async function AttendeesPage({ params }: { params: Promise<{ even
     redirect(`/app/events/${eventId}/attendees`);
   }
 
+  const features = planFeatures(ctx.plan as PlanId);
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Attendees ({attendees?.length ?? 0})</CardTitle>
+        <CardTitle className="flex items-center justify-between flex-wrap gap-2">
+          <span>Attendees ({attendees?.length ?? 0})</span>
+          {features.csvExport && (
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/api/events/${eventId}/export?kind=attendees`}>Export CSV</Link>
+            </Button>
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {!attendees || attendees.length === 0 ? (

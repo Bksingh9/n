@@ -6,6 +6,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { requireOrg } from '@/lib/auth';
 import { CreateEventSchema, createEvent } from '@/lib/services/events';
+import { listBrands } from '@/lib/services/brands';
+import { planFeatures } from '@/lib/roles';
+import type { PlanId } from '@/lib/plans';
 
 async function createEventAction(formData: FormData) {
   'use server';
@@ -27,7 +30,9 @@ async function createEventAction(formData: FormData) {
 }
 
 export default async function NewEventPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  await requireOrg();
+  const ctx = await requireOrg();
+  const features = planFeatures(ctx.plan as PlanId);
+  const brands = features.multipleBrands ? await listBrands(ctx.organizationId) : [];
   const params = await searchParams;
   return (
     <div className="container-px py-8 max-w-3xl mx-auto">
@@ -87,6 +92,21 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
                 <Label htmlFor="application_deadline">Application deadline</Label>
                 <Input id="application_deadline" name="application_deadline" type="datetime-local" />
               </div>
+              {features.multipleBrands && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="brand_id">Brand</Label>
+                  <select
+                    id="brand_id"
+                    name="brand_id"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">— Default brand —</option>
+                    {brands.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
             {params.error && <p className="text-sm text-destructive">{params.error}</p>}
             <Button type="submit" className="w-full">Create event</Button>

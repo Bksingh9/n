@@ -1,9 +1,13 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { requireOrg } from '@/lib/auth';
 import { createServiceClient } from '@/lib/supabase/server';
 import { formatDate } from '@/lib/utils';
+import { planFeatures } from '@/lib/roles';
+import type { PlanId } from '@/lib/plans';
 
 export default async function MatchesPage({ params }: { params: Promise<{ eventId: string }> }) {
   const ctx = await requireOrg();
@@ -31,9 +35,20 @@ export default async function MatchesPage({ params }: { params: Promise<{ eventI
     (data ?? []).forEach((a) => names.set(a.id, `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim() || 'Attendee'));
   }
 
+  const features = planFeatures(ctx.plan as PlanId);
+
   return (
     <Card>
-      <CardHeader><CardTitle>Mutual matches ({matches?.length ?? 0})</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between flex-wrap gap-2">
+          <span>Mutual matches ({matches?.length ?? 0})</span>
+          {features.csvExport && (
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/api/events/${eventId}/export?kind=matches`}>Export CSV</Link>
+            </Button>
+          )}
+        </CardTitle>
+      </CardHeader>
       <CardContent>
         {!matches || matches.length === 0 ? (
           <p className="text-sm text-muted-foreground">No mutual matches yet. Share post-event links with attendees.</p>

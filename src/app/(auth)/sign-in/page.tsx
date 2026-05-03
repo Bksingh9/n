@@ -7,7 +7,13 @@ import { Button } from '@/components/ui/button';
 import { createServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 
-const Schema = z.object({ email: z.string().email(), password: z.string().min(1) });
+const Schema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+  next: z.string().optional(),
+});
+
+const safeNext = (n: string | undefined) => (n && n.startsWith('/') ? n : '/app');
 
 async function signInAction(formData: FormData) {
   'use server';
@@ -19,10 +25,10 @@ async function signInAction(formData: FormData) {
     password: parsed.data.password,
   });
   if (error) redirect(`/sign-in?error=${encodeURIComponent(error.message)}`);
-  redirect('/app');
+  redirect(safeNext(parsed.data.next));
 }
 
-export default async function SignInPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function SignInPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string }> }) {
   const params = await searchParams;
   return (
     <Card>
@@ -32,6 +38,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
       </CardHeader>
       <CardContent>
         <form action={signInAction} className="space-y-4">
+          {params.next && <input type="hidden" name="next" value={params.next} />}
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
             <Input id="email" name="email" type="email" autoComplete="email" required />

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Calendar, LayoutDashboard, CreditCard, Settings, Users, LogOut } from 'lucide-react';
+import { Calendar, LayoutDashboard, CreditCard, Settings, Users, LogOut, Palette } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { createServerClient } from '@/lib/supabase/server';
 import { type OrgContext } from '@/lib/auth';
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 const NAV = [
   { href: '/app', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/app/events', label: 'Events', icon: Calendar },
+  { href: '/app/brands', label: 'Brands', icon: Palette },
   { href: '/app/billing', label: 'Billing', icon: CreditCard },
   { href: '/app/team', label: 'Team', icon: Users },
   { href: '/app/settings', label: 'Settings', icon: Settings },

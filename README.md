@@ -136,6 +136,41 @@ post-event page. Intro emails are sent **only** when:
 
 Email events are logged in `email_events`.
 
+## White-label brands (Agency)
+
+Agency workspaces can run multiple brands inside one organization. Each event
+optionally points to a brand; the public event page picks up the brand's
+logo, primary color, and tagline. Manage brands at `/app/brands`. Plan
+gating + role gating (`admin` minimum) is enforced on every server action.
+
+## Team invites
+
+Pro and Agency plans can invite teammates as `admin` or `member` from
+`/app/team`. Invites are tokenized (only the SHA-256 hash is stored), expire
+after 14 days, and counted against the `team_members_added` quota. Invitees
+receive an email and accept at `/invites/[token]`; a mismatched email or
+expired link surfaces a clear error.
+
+## CSV export (Pro+)
+
+`/api/events/[eventId]/export?kind=attendees|matches|emails` streams a CSV
+download. Plan gating is server-enforced; lower plans receive a 403.
+
+## Cron-driven reminders
+
+`/api/cron/reminders` is invoked by Vercel Cron every 15 minutes
+(`vercel.json`). It dispatches:
+
+- 24-hour reminder emails for events starting in 23-25h
+- 1-hour reminder emails for events starting in 30-90 minutes
+- Post-event interest links for events that ended in the last 6 hours
+
+Each reminder tier is idempotent: the `reminder_24h_sent_at` /
+`reminder_1h_sent_at` / `post_event_links_sent_at` timestamps are written
+before per-attendee dispatch, so retries do not double-send. Each reminder
+also reissues the attendee's private token for a fresh check-in /
+post-event link. Authorization is via `Authorization: Bearer ${CRON_SECRET}`.
+
 ## Stripe webhook
 
 `/api/stripe/webhook` verifies the signature with `STRIPE_WEBHOOK_SECRET`,

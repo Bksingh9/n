@@ -20,6 +20,7 @@ export const CreateEventSchema = z.object({
   max_attendees: z.coerce.number().int().min(2).max(2000).optional(),
   application_deadline: z.string().optional(),
   relationship_goal: z.string().max(120).optional(),
+  brand_id: z.string().uuid().optional().or(z.literal('')),
 });
 
 export type CreateEventInput = z.infer<typeof CreateEventSchema>;
@@ -57,6 +58,7 @@ export const createEvent = async (params: {
       max_attendees: params.input.max_attendees ?? null,
       application_deadline: params.input.application_deadline || null,
       relationship_goal: params.input.relationship_goal ?? null,
+      brand_id: params.input.brand_id || null,
     })
     .select('id, public_slug')
     .single();

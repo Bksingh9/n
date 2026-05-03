@@ -56,8 +56,40 @@ export interface EventRow {
   current_round: number | null;
   round_started_at: string | null;
   round_ends_at: string | null;
+  brand_id: string | null;
+  reminder_24h_sent_at: string | null;
+  reminder_1h_sent_at: string | null;
+  post_event_links_sent_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface BrandRow {
+  id: string;
+  organization_id: string;
+  name: string;
+  slug: string;
+  tagline: string | null;
+  primary_color: string | null;
+  logo_url: string | null;
+  support_email: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrganizationInviteRow {
+  id: string;
+  organization_id: string;
+  email: string;
+  role: string;
+  invited_by: string | null;
+  token_hash: string;
+  status: string;
+  accepted_by: string | null;
+  expires_at: string;
+  created_at: string;
+  accepted_at: string | null;
 }
 
 export interface EventQuestionRow {
@@ -208,6 +240,8 @@ export interface Database {
       organizations: TableDef<OrganizationRow, 'name'>;
       organization_members: TableDef<OrganizationMemberRow, 'organization_id' | 'user_id'>;
       events: TableDef<EventRow, 'organization_id' | 'title'>;
+      brands: TableDef<BrandRow, 'organization_id' | 'name' | 'slug'>;
+      organization_invites: TableDef<OrganizationInviteRow, 'organization_id' | 'email' | 'token_hash'>;
       event_questions: TableDef<EventQuestionRow, 'organization_id' | 'event_id' | 'question'>;
       attendees: TableDef<AttendeeRow, 'organization_id' | 'event_id'>;
       attendee_answers: TableDef<AttendeeAnswerRow, 'organization_id' | 'event_id' | 'attendee_id' | 'question_id'>;
