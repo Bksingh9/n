@@ -41,6 +41,7 @@ export interface ApplyResult {
 export const applyToEvent = async (params: {
   eventSlug: string;
   input: ApplicationInput;
+  answers?: Map<string, string>;
 }): Promise<ApplyResult> => {
   const svc = createServiceClient();
   const { data: event } = await svc
@@ -125,6 +126,17 @@ export const applyToEvent = async (params: {
       entityId: created.id,
     }),
   ]);
+
+  if (params.answers && params.answers.size > 0) {
+    const rows = Array.from(params.answers.entries()).map(([questionId, answer]) => ({
+      organization_id: event.organization_id,
+      event_id: event.id,
+      attendee_id: created.id,
+      question_id: questionId,
+      answer,
+    }));
+    await svc.from('attendee_answers').insert(rows);
+  }
 
   return { ok: true, attendeeId: created.id, privateToken: token };
 };

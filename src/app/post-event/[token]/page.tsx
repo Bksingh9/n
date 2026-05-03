@@ -107,6 +107,11 @@ export default async function PostEventPage({
             No other attendees to choose from yet.
           </CardContent></Card>
         )}
+
+        <p className="text-xs text-muted-foreground text-center">
+          Something went wrong at the event?{' '}
+          <a href={`/report/${token}`} className="underline">Report a safety concern</a>
+        </p>
       </div>
     </div>
   );

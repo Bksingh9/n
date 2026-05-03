@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { redirect } from 'next/navigation';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { requireOrg } from '@/lib/auth';
@@ -9,9 +10,15 @@ import { UsageCard } from '@/components/app/usage-card';
 import { ActivityFeed, type ActivityRow } from '@/components/app/activity-feed';
 import { formatDate } from '@/lib/utils';
 import { Calendar, Users, HeartHandshake } from 'lucide-react';
+import { createDemoEvent } from '@/lib/services/demo';
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ demo_error?: string }>;
+}) {
   const ctx = await requireOrg();
+  const sp = await searchParams;
   const svc = createServiceClient();
 
   const [{ count: totalEvents }, { count: upcomingEvents }, attendeesAgg, matchesAgg, usage, activity] = await Promise.all([
@@ -46,6 +53,16 @@ export default async function DashboardPage() {
     { label: 'Mutual matches', value: matchesAgg.count ?? 0, icon: HeartHandshake },
   ];
 
+  const showDemoCard = (totalEvents ?? 0) === 0;
+
+  async function seedDemoAction() {
+    'use server';
+    const c = await requireOrg();
+    const r = await createDemoEvent({ organizationId: c.organizationId, userId: c.user.id });
+    if (!r.ok) redirect(`/app?demo_error=${encodeURIComponent(r.error)}`);
+    redirect(`/app/events/${r.eventId}`);
+  }
+
   return (
     <div className="container-px py-8 max-w-6xl mx-auto">
       <div className="flex items-start justify-between flex-wrap gap-3 mb-6">
@@ -58,6 +75,27 @@ export default async function DashboardPage() {
           <Button asChild><Link href="/app/events/new">New event</Link></Button>
         </div>
       </div>
+
+      {sp.demo_error && (
+        <Card className="mb-6 border-destructive/40">
+          <CardContent className="pt-6 text-sm text-destructive">{sp.demo_error}</CardContent>
+        </Card>
+      )}
+      {showDemoCard && (
+        <Card className="mb-6 border-primary/40 bg-primary/5">
+          <CardHeader>
+            <CardTitle>Try a demo event in 30 seconds</CardTitle>
+            <CardDescription>
+              We&apos;ll create a published event with sample attendees, deterministic compatibility scores, and a generated rotation. Delete it any time.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form action={seedDemoAction}>
+              <Button type="submit">Create demo event</Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {stats.map((s) => (

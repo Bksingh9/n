@@ -78,6 +78,21 @@ export interface BrandRow {
   updated_at: string;
 }
 
+export interface SafetyReportRow {
+  id: string;
+  organization_id: string;
+  event_id: string;
+  reporter_attendee_id: string | null;
+  reported_attendee_id: string | null;
+  category: string;
+  details: string | null;
+  status: string;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  resolution_note: string | null;
+  created_at: string;
+}
+
 export interface OrganizationInviteRow {
   id: string;
   organization_id: string;
@@ -242,6 +257,7 @@ export interface Database {
       events: TableDef<EventRow, 'organization_id' | 'title'>;
       brands: TableDef<BrandRow, 'organization_id' | 'name' | 'slug'>;
       organization_invites: TableDef<OrganizationInviteRow, 'organization_id' | 'email' | 'token_hash'>;
+      safety_reports: TableDef<SafetyReportRow, 'organization_id' | 'event_id' | 'category'>;
       event_questions: TableDef<EventQuestionRow, 'organization_id' | 'event_id' | 'question'>;
       attendees: TableDef<AttendeeRow, 'organization_id' | 'event_id'>;
       attendee_answers: TableDef<AttendeeAnswerRow, 'organization_id' | 'event_id' | 'attendee_id' | 'question_id'>;

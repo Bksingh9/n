@@ -42,9 +42,14 @@ export default async function CheckInPage({ params, searchParams }: {
               </form>
             )
           ) : (
-            <p className="text-sm text-muted-foreground">
-              You&apos;ll see your table assignment here once the event begins. Keep this page open.
-            </p>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                You&apos;ll see your table assignment here once the event begins. Keep this page open.
+              </p>
+              <a href={`/report/${token}`} className="block text-xs text-muted-foreground underline">
+                Need to report a safety concern?
+              </a>
+            </div>
           )}
         </CardContent>
       </Card>

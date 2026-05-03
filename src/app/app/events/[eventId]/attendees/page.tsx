@@ -70,7 +70,9 @@ export default async function AttendeesPage({ params }: { params: Promise<{ even
                 {attendees.map((a) => (
                   <tr key={a.id} className="border-b last:border-0">
                     <td className="py-2 pr-4">
-                      <div className="font-medium">{a.first_name} {a.last_name}</div>
+                      <Link href={`/app/events/${eventId}/attendees/${a.id}`} className="font-medium hover:underline">
+                        {a.first_name} {a.last_name}
+                      </Link>
                       <div className="text-xs text-muted-foreground">{a.email}</div>
                     </td>
                     <td className="py-2 pr-4">{a.age ?? '—'}</td>

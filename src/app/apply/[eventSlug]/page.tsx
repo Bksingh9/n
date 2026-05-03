@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { createServiceClient } from '@/lib/supabase/server';
 import { ApplicationSchema, applyToEvent } from '@/lib/services/attendees';
 import { sendApplicationReceived } from '@/lib/email/send';
+import { listEventQuestionsForApply, validateAndCollectAnswers } from '@/lib/services/questions';
 
 export default async function ApplyPage({ params, searchParams }: {
   params: Promise<{ eventSlug: string }>;
@@ -22,6 +23,8 @@ export default async function ApplyPage({ params, searchParams }: {
     .maybeSingle();
   if (!event) notFound();
 
+  const questions = await listEventQuestionsForApply(event.id);
+
   async function applyAction(formData: FormData) {
     'use server';
     const raw = Object.fromEntries(formData);
@@ -29,7 +32,15 @@ export default async function ApplyPage({ params, searchParams }: {
     if (!parsed.success) {
       redirect(`/apply/${eventSlug}?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
     }
-    const res = await applyToEvent({ eventSlug, input: parsed.data });
+    const answersResult = validateAndCollectAnswers(questions, formData);
+    if (!answersResult.ok) {
+      redirect(`/apply/${eventSlug}?error=${encodeURIComponent(answersResult.error)}`);
+    }
+    const res = await applyToEvent({
+      eventSlug,
+      input: parsed.data,
+      answers: answersResult.answers,
+    });
     if (!res.ok || !res.privateToken) {
       redirect(`/apply/${eventSlug}?error=${encodeURIComponent(res.error ?? 'Could not submit')}`);
     }
@@ -126,6 +137,60 @@ export default async function ApplyPage({ params, searchParams }: {
                 <Label htmlFor="dealbreakers">Dealbreakers (optional)</Label>
                 <Textarea id="dealbreakers" name="dealbreakers" maxLength={500} rows={2} />
               </div>
+              {questions.length > 0 && (
+                <div className="space-y-3 pt-2 border-t">
+                  <p className="text-sm font-medium">A few more questions from your host</p>
+                  {questions.map((q) => {
+                    const fieldName = `q_${q.id}`;
+                    const opts = (q.options as string[] | null) ?? [];
+                    if (q.type === 'textarea') {
+                      return (
+                        <div key={q.id} className="space-y-1.5">
+                          <Label htmlFor={fieldName}>{q.question}{q.required && ' *'}</Label>
+                          <Textarea id={fieldName} name={fieldName} required={q.required} rows={3} maxLength={2000} />
+                        </div>
+                      );
+                    }
+                    if (q.type === 'select') {
+                      return (
+                        <div key={q.id} className="space-y-1.5">
+                          <Label htmlFor={fieldName}>{q.question}{q.required && ' *'}</Label>
+                          <select
+                            id={fieldName}
+                            name={fieldName}
+                            required={q.required}
+                            defaultValue=""
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          >
+                            <option value="" disabled>Choose…</option>
+                            {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                        </div>
+                      );
+                    }
+                    if (q.type === 'multi_select') {
+                      return (
+                        <div key={q.id} className="space-y-1.5">
+                          <Label>{q.question}{q.required && ' *'}</Label>
+                          <div className="grid gap-1">
+                            {opts.map((o) => (
+                              <label key={o} className="flex items-center gap-2 text-sm">
+                                <input type="checkbox" name={fieldName} value={o} /> {o}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={q.id} className="space-y-1.5">
+                        <Label htmlFor={fieldName}>{q.question}{q.required && ' *'}</Label>
+                        <Input id={fieldName} name={fieldName} required={q.required} maxLength={500} />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <label className="flex items-start gap-2 text-sm">
                 <input type="checkbox" name="consent_to_contact" className="mt-0.5" />
                 <span>I consent to the host emailing me about this event and follow-ups.</span>

@@ -171,6 +171,31 @@ before per-attendee dispatch, so retries do not double-send. Each reminder
 also reissues the attendee's private token for a fresh check-in /
 post-event link. Authorization is via `Authorization: Bearer ${CRON_SECRET}`.
 
+## Custom application questions
+
+Hosts can add per-event questions of type `text`, `textarea`, `select`, or
+`multi_select` from `/app/events/<id>/questions`. Required questions are
+enforced server-side on submit. Answers are stored in `attendee_answers` and
+shown on the per-attendee detail page at
+`/app/events/<id>/attendees/<attendeeId>`.
+
+## Safety reports
+
+Attendees access a private reporting form at `/report/<token>` (linked from
+their check-in and post-event pages). Reports are authenticated via the
+attendee's hashed private token, rate-limited to 5 per attendee per event
+per 24 hours, and routed to `/app/events/<id>/safety` for host review.
+Resolving a report can optionally toggle the reported attendee's
+`safety_flag`. Only owners + admins can resolve.
+
+## One-click demo
+
+Empty dashboards show a "Create demo event" card. The demo seeder publishes
+an event, drops in six diverse sample attendees with varied preferences,
+adds a sample custom question, runs deterministic compatibility scoring,
+and generates a 4-round / 3-table rotation. Plan + usage limits still
+apply, so the host sees real-world behavior.
+
 ## Stripe webhook
 
 `/api/stripe/webhook` verifies the signature with `STRIPE_WEBHOOK_SECRET`,
