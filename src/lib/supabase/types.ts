@@ -78,6 +78,21 @@ export interface BrandRow {
   updated_at: string;
 }
 
+export interface JobRow {
+  id: string;
+  organization_id: string | null;
+  kind: string;
+  payload: Json;
+  status: string;
+  attempts: number;
+  max_attempts: number;
+  next_run_at: string;
+  last_error: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
 export interface SafetyReportRow {
   id: string;
   organization_id: string;
@@ -258,6 +273,7 @@ export interface Database {
       brands: TableDef<BrandRow, 'organization_id' | 'name' | 'slug'>;
       organization_invites: TableDef<OrganizationInviteRow, 'organization_id' | 'email' | 'token_hash'>;
       safety_reports: TableDef<SafetyReportRow, 'organization_id' | 'event_id' | 'category'>;
+      jobs: TableDef<JobRow, 'kind'>;
       event_questions: TableDef<EventQuestionRow, 'organization_id' | 'event_id' | 'question'>;
       attendees: TableDef<AttendeeRow, 'organization_id' | 'event_id'>;
       attendee_answers: TableDef<AttendeeAnswerRow, 'organization_id' | 'event_id' | 'attendee_id' | 'question_id'>;

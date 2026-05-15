@@ -2,17 +2,19 @@
 //   - reminder_24h_sent_at
 //   - reminder_1h_sent_at
 //   - post_event_links_sent_at
-// We mark the timestamp BEFORE iterating attendees so a cron retry doesn't
-// double-send. Per-attendee email_events still capture provider results.
+// We mark the timestamp BEFORE enqueuing per-attendee jobs so a cron retry
+// doesn't double-enqueue. Each per-attendee send is its own job so a
+// Resend hiccup on one recipient doesn't block the rest of the batch and
+// the job queue handles retries.
 //
-// Each reminder reissues the attendee's private token (and updates the hash)
-// so the link in the email is always functional. The previous token becomes
-// inert as soon as we update the hash.
+// Each reminder reissues the attendee's private token (and updates the
+// hash) so the link in the email is always functional. The previous
+// token becomes inert as soon as we update the hash.
 
 import { createServiceClient } from '@/lib/supabase/server';
 import { publicEnv } from '@/lib/env';
-import { sendEventReminder, sendPostEventLink } from '@/lib/email/send';
 import { hashToken, randomToken } from '@/lib/utils';
+import { enqueueJob } from '@/lib/services/jobs';
 
 const ONE_HOUR_MS = 3600_000;
 
@@ -33,7 +35,7 @@ export const dispatchReminders = async (now = new Date()) => {
   for (const ev of events24 ?? []) {
     sent.eventsTouched += 1;
     await svc.from('events').update({ reminder_24h_sent_at: now.toISOString() }).eq('id', ev.id);
-    sent.reminders24h += await sendRemindersForEvent(ev.id, '24h');
+    sent.reminders24h += await enqueueRemindersForEvent(ev.id, '24h');
   }
 
   // 1h reminders.
@@ -49,7 +51,7 @@ export const dispatchReminders = async (now = new Date()) => {
   for (const ev of events1 ?? []) {
     sent.eventsTouched += 1;
     await svc.from('events').update({ reminder_1h_sent_at: now.toISOString() }).eq('id', ev.id);
-    sent.reminders1h += await sendRemindersForEvent(ev.id, '1h');
+    sent.reminders1h += await enqueueRemindersForEvent(ev.id, '1h');
   }
 
   // Post-event links: events that ended in the last 6 hours.
@@ -64,13 +66,13 @@ export const dispatchReminders = async (now = new Date()) => {
   for (const ev of postEvents ?? []) {
     sent.eventsTouched += 1;
     await svc.from('events').update({ post_event_links_sent_at: now.toISOString() }).eq('id', ev.id);
-    sent.postEvent += await sendPostEventLinksForEvent(ev.id);
+    sent.postEvent += await enqueuePostEventLinksForEvent(ev.id);
   }
 
   return sent;
 };
 
-const sendRemindersForEvent = async (eventId: string, window: '24h' | '1h'): Promise<number> => {
+const enqueueRemindersForEvent = async (eventId: string, window: '24h' | '1h'): Promise<number> => {
   const svc = createServiceClient();
   const { data: event } = await svc
     .from('events')
@@ -92,23 +94,27 @@ const sendRemindersForEvent = async (eventId: string, window: '24h' | '1h'): Pro
     const token = randomToken();
     await svc.from('attendees').update({ private_token_hash: await hashToken(token) }).eq('id', a.id);
     const checkInUrl = `${publicEnv.APP_URL}/check-in/${token}`;
-    await sendEventReminder({
+    await enqueueJob({
+      kind: 'send_event_reminder',
       organizationId: event.organization_id,
-      eventId: event.id,
-      eventTitle: event.title,
-      startsAt: event.starts_at ? new Date(event.starts_at).toLocaleString() : '',
-      venue: event.venue_name ?? '',
-      recipientEmail: a.email,
-      recipientFirstName: a.first_name ?? 'there',
-      checkInUrl,
-      window,
+      payload: {
+        organization_id: event.organization_id,
+        event_id: event.id,
+        event_title: event.title,
+        starts_at: event.starts_at ? new Date(event.starts_at).toLocaleString() : '',
+        venue: event.venue_name ?? '',
+        recipient_email: a.email,
+        recipient_first_name: a.first_name ?? 'there',
+        check_in_url: checkInUrl,
+        window,
+      },
     });
     count += 1;
   }
   return count;
 };
 
-const sendPostEventLinksForEvent = async (eventId: string): Promise<number> => {
+const enqueuePostEventLinksForEvent = async (eventId: string): Promise<number> => {
   const svc = createServiceClient();
   const { data: event } = await svc
     .from('events')
@@ -130,13 +136,17 @@ const sendPostEventLinksForEvent = async (eventId: string): Promise<number> => {
     const token = randomToken();
     await svc.from('attendees').update({ private_token_hash: await hashToken(token) }).eq('id', a.id);
     const postEventUrl = `${publicEnv.APP_URL}/post-event/${token}`;
-    await sendPostEventLink({
+    await enqueueJob({
+      kind: 'send_post_event_link',
       organizationId: event.organization_id,
-      eventId: event.id,
-      eventTitle: event.title,
-      recipientEmail: a.email,
-      recipientFirstName: a.first_name ?? 'there',
-      postEventUrl,
+      payload: {
+        organization_id: event.organization_id,
+        event_id: event.id,
+        event_title: event.title,
+        recipient_email: a.email,
+        recipient_first_name: a.first_name ?? 'there',
+        post_event_url: postEventUrl,
+      },
     });
     count += 1;
   }

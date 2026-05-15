@@ -196,6 +196,42 @@ adds a sample custom question, runs deterministic compatibility scoring,
 and generates a 4-round / 3-table rotation. Plan + usage limits still
 apply, so the host sees real-world behavior.
 
+## PII redaction before AI calls
+
+`src/lib/pii.ts` centralizes PII scrubbing applied to any attendee data
+before it is sent to a third-party model. The redactor strips emails,
+phone numbers, URLs, `@handles`, and any caller-supplied "extras" like an
+attendee's last name. `redactAttendeeForAi()` wraps it for the standard
+attendee shape: first names collapse to an initial, last names / email /
+phone are dropped entirely, and free-text fields are scrubbed.
+
+Used by `lib/matching/anthropic.ts`. Add new AI features by composing
+`redactAttendeeForAi()` rather than re-implementing the rules.
+
+## Background job queue
+
+`jobs` table + `lib/services/jobs.ts` (producer) +
+`lib/services/job-handlers.ts` (worker dispatch). Workers claim batches
+via a conditional `status='pending' → 'running'` update so concurrent
+workers don't double-claim. Failed jobs retry with exponential backoff
+(2m → 4m → 8m → … capped at 1h) up to `max_attempts` (default 5), then
+move to `dead`.
+
+`/api/cron/jobs` runs every minute via `vercel.json` and processes up to
+50 jobs per invocation, authorized by `Authorization: Bearer ${CRON_SECRET}`.
+
+Producers in use today:
+
+- Mutual-match intro emails — enqueued by `detectMutualMatch` so the
+  attendee-facing request stays fast and a Resend hiccup doesn't break
+  the consent flow.
+- 24h / 1h event reminders — `dispatchReminders` enqueues one job per
+  attendee instead of sending inline.
+- Post-event interest links — same model as reminders.
+
+Add a new job kind by extending `JobKind` and `runJob()` in
+`job-handlers.ts`.
+
 ## Stripe webhook
 
 `/api/stripe/webhook` verifies the signature with `STRIPE_WEBHOOK_SECRET`,

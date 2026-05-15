@@ -8,6 +8,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { createActivityEvent } from '@/lib/activity';
 import { findAttendeeByToken } from '@/lib/services/attendees';
 import { sendIntroEmail } from '@/lib/email/send';
+import { enqueueJob } from '@/lib/services/jobs';
 
 export const InterestSchema = z.object({
   to_attendee_id: z.string().uuid(),
@@ -126,7 +127,13 @@ export const detectMutualMatch = async (params: {
   }
 
   if (matchId && !existing?.intro_email_sent && aToB.consent_to_share_contact && bToA.consent_to_share_contact) {
-    await sendIntroEmailForMatch(matchId);
+    // Enqueue rather than send inline so a transient Resend failure is
+    // retried automatically and the attendee-facing request stays fast.
+    await enqueueJob({
+      kind: 'send_intro_for_match',
+      organizationId: params.organizationId,
+      payload: { match_id: matchId },
+    });
   }
 
   return { matched: true as const };

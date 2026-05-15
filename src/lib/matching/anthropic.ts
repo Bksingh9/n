@@ -4,6 +4,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { serverEnv } from '@/lib/env';
 import { computeDeterministicScore, type ScoringAttendee } from '@/lib/matching/scoring';
+import { redactAttendeeForAi } from '@/lib/pii';
 
 export interface CompatibilityResult {
   score: number;
@@ -53,8 +54,8 @@ export const generateCompatibilityScore = async (
   }
 
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-  const safeA = anonymize(attendeeA);
-  const safeB = anonymize(attendeeB);
+  const safeA = redactAttendeeForAi(attendeeA);
+  const safeB = redactAttendeeForAi(attendeeB);
 
   const userMessage = `Event: ${event.title}
 Event goal: ${event.relationship_goal ?? 'unspecified'}
@@ -102,18 +103,6 @@ Return strict JSON matching the schema. Use the deterministic baseline as a guar
     };
   }
 };
-
-const anonymize = (a: ScoringAttendee & { first_name?: string | null }) => ({
-  display_name: a.first_name ? a.first_name[0] + '.' : 'A',
-  age: a.age,
-  gender: a.gender,
-  interested_in: a.interested_in,
-  relationship_goal: a.relationship_goal,
-  preferred_age_min: a.preferred_age_min,
-  preferred_age_max: a.preferred_age_max,
-  hobbies: a.hobbies,
-  conversation_topics: a.conversation_topics,
-});
 
 const clampScore = (raw: unknown, baseline: number): number => {
   const n = typeof raw === 'number' ? raw : Number(raw);
