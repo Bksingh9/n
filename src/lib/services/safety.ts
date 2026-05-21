@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { createServiceClient } from '@/lib/supabase/server';
 import { createActivityEvent } from '@/lib/activity';
 import { findAttendeeByToken } from '@/lib/services/attendees';
+import { checkRateLimit } from '@/lib/rate-limit';
 import type { SafetyReportRow } from '@/lib/supabase/types';
 
 export const SafetyCategories = [
@@ -35,6 +36,18 @@ export const reportSafetyConcern = async (params: {
 }) => {
   const reporter = await findAttendeeByToken(params.reporterToken);
   if (!reporter) return { ok: false as const, error: 'Invalid link' };
+
+  // Coarse rate limit in addition to the 5-per-24h business rule below:
+  // hold script-driven abuse to 1 submission/minute per reporter.
+  const burst = await checkRateLimit({
+    action: 'safety_report_burst',
+    identifier: reporter.id,
+    limit: 1,
+    windowMs: 60_000,
+  });
+  if (!burst.allowed) {
+    return { ok: false as const, error: 'Please wait a moment before submitting another report.' };
+  }
 
   const svc = createServiceClient();
   const reportedId =

@@ -7,6 +7,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { createActivityEvent } from '@/lib/activity';
 import { enforceUsage, recordUsage } from '@/lib/usage';
 import { hashToken, randomToken } from '@/lib/utils';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const ApplicationSchema = z.object({
   first_name: z.string().min(1).max(80),
@@ -42,6 +43,7 @@ export const applyToEvent = async (params: {
   eventSlug: string;
   input: ApplicationInput;
   answers?: Map<string, string>;
+  clientIp?: string;
 }): Promise<ApplyResult> => {
   const svc = createServiceClient();
   const { data: event } = await svc
@@ -50,6 +52,29 @@ export const applyToEvent = async (params: {
     .eq('public_slug', params.eventSlug)
     .maybeSingle();
   if (!event) return { ok: false, error: 'Event not found' };
+
+  // Per-event-per-IP: 10 applications / 10 minutes is generous for legit
+  // traffic and blocks scripted abuse.
+  const ipLimit = await checkRateLimit({
+    action: 'apply',
+    identifier: `${event.id}:${params.clientIp ?? 'anon'}`,
+    limit: 10,
+    windowMs: 10 * 60_000,
+  });
+  if (!ipLimit.allowed) {
+    return { ok: false, error: 'Too many applications from this device. Try again later.' };
+  }
+  // Per-event-per-email: 3 applications / 1 hour catches form-spammers
+  // who rotate IPs but reuse an address.
+  const emailLimit = await checkRateLimit({
+    action: 'apply_email',
+    identifier: `${event.id}:${params.input.email.toLowerCase()}`,
+    limit: 3,
+    windowMs: 60 * 60_000,
+  });
+  if (!emailLimit.allowed) {
+    return { ok: false, error: 'This email has submitted too many applications. Try again later.' };
+  }
   if (event.status !== 'published' && event.status !== 'live') {
     return { ok: false, error: 'Applications are not open for this event' };
   }

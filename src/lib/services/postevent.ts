@@ -9,6 +9,7 @@ import { createActivityEvent } from '@/lib/activity';
 import { findAttendeeByToken } from '@/lib/services/attendees';
 import { sendIntroEmail } from '@/lib/email/send';
 import { enqueueJob } from '@/lib/services/jobs';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const InterestSchema = z.object({
   to_attendee_id: z.string().uuid(),
@@ -25,6 +26,19 @@ export const submitInterest = async (token: string, input: InterestInput) => {
   const me = await findAttendeeByToken(token);
   if (!me) return { ok: false as const, error: 'Invalid link' };
   if (input.to_attendee_id === me.id) return { ok: false as const, error: 'Cannot select yourself' };
+
+  // Cap to 60 interest submissions / hour per attendee. A typical event
+  // is dozens of attendees; this catches scripted abuse without blocking
+  // a legitimate run through the post-event list.
+  const limit = await checkRateLimit({
+    action: 'post_event_interest',
+    identifier: me.id,
+    limit: 60,
+    windowMs: 60 * 60_000,
+  });
+  if (!limit.allowed) {
+    return { ok: false as const, error: 'You are submitting too quickly. Try again shortly.' };
+  }
 
   const svc = createServiceClient();
   const { data: target } = await svc

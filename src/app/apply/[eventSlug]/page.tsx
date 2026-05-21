@@ -4,10 +4,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { headers } from 'next/headers';
 import { createServiceClient } from '@/lib/supabase/server';
 import { ApplicationSchema, applyToEvent } from '@/lib/services/attendees';
 import { sendApplicationReceived } from '@/lib/email/send';
 import { listEventQuestionsForApply, validateAndCollectAnswers } from '@/lib/services/questions';
+import { clientIpFromHeaders } from '@/lib/rate-limit';
 
 export default async function ApplyPage({ params, searchParams }: {
   params: Promise<{ eventSlug: string }>;
@@ -36,10 +38,12 @@ export default async function ApplyPage({ params, searchParams }: {
     if (!answersResult.ok) {
       redirect(`/apply/${eventSlug}?error=${encodeURIComponent(answersResult.error)}`);
     }
+    const clientIp = clientIpFromHeaders(await headers());
     const res = await applyToEvent({
       eventSlug,
       input: parsed.data,
       answers: answersResult.answers,
+      clientIp,
     });
     if (!res.ok || !res.privateToken) {
       redirect(`/apply/${eventSlug}?error=${encodeURIComponent(res.error ?? 'Could not submit')}`);

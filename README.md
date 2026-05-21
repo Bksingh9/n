@@ -232,6 +232,35 @@ Producers in use today:
 Add a new job kind by extending `JobKind` and `runJob()` in
 `job-handlers.ts`.
 
+## Rate limiting
+
+Public endpoints that accept attendee-driven writes are protected by a
+sliding-window limiter (`src/lib/rate-limit.ts`, `rate_limits` table):
+
+| Action                 | Identifier               | Limit                |
+|------------------------|--------------------------|----------------------|
+| `apply`                | event + client IP        | 10 / 10 min          |
+| `apply_email`          | event + email            | 3 / 1 hour           |
+| `post_event_interest`  | reporter attendee id     | 60 / 1 hour          |
+| `safety_report_burst`  | reporter attendee id     | 1 / 1 minute         |
+
+Buckets are fixed-size for simplicity (a true sliding window needs Redis
+or a Postgres RPC; this catches the abuse patterns we care about without
+either). The `safety_report_burst` limit stacks on the existing 5-per-24h
+business rule in `reportSafetyConcern`.
+
+## Background-job admin
+
+`/app/jobs` (admin+ role) shows recent background jobs scoped to the
+organization, with status counts and per-job actions:
+
+- **Retry** moves a `dead` job back to `pending` with `attempts=0`.
+- **Cancel** marks a `pending` job as `dead` so the worker skips it.
+- `running` and `completed` jobs are listed but not actionable.
+
+Lives alongside the queue internals via a small `services/jobs-admin.ts`
+so admin UI doesn't pull in the worker dispatch chain.
+
 ## Stripe webhook
 
 `/api/stripe/webhook` verifies the signature with `STRIPE_WEBHOOK_SECRET`,

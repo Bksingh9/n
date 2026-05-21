@@ -93,6 +93,14 @@ export interface JobRow {
   created_at: string;
 }
 
+export interface RateLimitRow {
+  id: string;
+  bucket_key: string;
+  window_start: string;
+  count: number;
+  created_at: string;
+}
+
 export interface SafetyReportRow {
   id: string;
   organization_id: string;
@@ -274,6 +282,7 @@ export interface Database {
       organization_invites: TableDef<OrganizationInviteRow, 'organization_id' | 'email' | 'token_hash'>;
       safety_reports: TableDef<SafetyReportRow, 'organization_id' | 'event_id' | 'category'>;
       jobs: TableDef<JobRow, 'kind'>;
+      rate_limits: TableDef<RateLimitRow, 'bucket_key' | 'window_start'>;
       event_questions: TableDef<EventQuestionRow, 'organization_id' | 'event_id' | 'question'>;
       attendees: TableDef<AttendeeRow, 'organization_id' | 'event_id'>;
       attendee_answers: TableDef<AttendeeAnswerRow, 'organization_id' | 'event_id' | 'attendee_id' | 'question_id'>;
