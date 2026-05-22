@@ -8,6 +8,7 @@ import { createActivityEvent } from '@/lib/activity';
 import { enforceUsage, recordUsage } from '@/lib/usage';
 import { hashToken, randomToken } from '@/lib/utils';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { validateEmail } from '@/lib/integrations/email-validation';
 
 export const ApplicationSchema = z.object({
   first_name: z.string().min(1).max(80),
@@ -96,6 +97,12 @@ export const applyToEvent = async (params: {
     if ((count ?? 0) >= event.max_attendees) {
       return { ok: false, error: 'This event is full' };
     }
+  }
+
+  // Disposable / burner email check. Fail-open by design.
+  const emailCheck = await validateEmail(params.input.email);
+  if (emailCheck.disposable) {
+    return { ok: false, error: 'Please use your real email so the host can reach you.' };
   }
 
   const usage = await enforceUsage(event.organization_id, 'attendees_registered', 1);

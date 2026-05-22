@@ -60,6 +60,10 @@ export interface EventRow {
   reminder_24h_sent_at: string | null;
   reminder_1h_sent_at: string | null;
   post_event_links_sent_at: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  geocoded_at: string | null;
+  geocode_label: string | null;
   created_at: string;
   updated_at: string;
 }

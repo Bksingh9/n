@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { createServiceClient } from '@/lib/supabase/server';
 import { formatDate } from '@/lib/utils';
 import { getBrandForEvent } from '@/lib/services/brands';
+import { embedMapUrl, staticMapUrl } from '@/lib/integrations/geocode';
 
 // Public event landing. Only safe public fields are read here using the
 // service role with an explicit allowlist of columns.
@@ -14,7 +15,7 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
   const svc = createServiceClient();
   const { data: event } = await svc
     .from('events')
-    .select('id, title, description, event_type, venue_name, city, starts_at, ends_at, status, public_slug, age_min, age_max, application_deadline, relationship_goal')
+    .select('id, title, description, event_type, venue_name, city, starts_at, ends_at, status, public_slug, age_min, age_max, application_deadline, relationship_goal, latitude, longitude, geocode_label')
     .eq('public_slug', slug)
     .in('status', ['published', 'live', 'completed'])
     .maybeSingle();
@@ -59,6 +60,26 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
             </div>
             {event.description && (
               <p className="whitespace-pre-line text-sm leading-relaxed">{event.description}</p>
+            )}
+            {typeof event.latitude === 'number' && typeof event.longitude === 'number' && (
+              <div className="space-y-1">
+                <div className="overflow-hidden rounded-md border">
+                  <iframe
+                    title="Venue map"
+                    src={embedMapUrl(event.latitude, event.longitude)}
+                    className="w-full h-64"
+                    loading="lazy"
+                  />
+                </div>
+                <a
+                  href={staticMapUrl(event.latitude, event.longitude)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-muted-foreground hover:underline"
+                >
+                  Open on OpenStreetMap →
+                </a>
+              </div>
             )}
             {open ? (
               <Button asChild className="w-full sm:w-auto">

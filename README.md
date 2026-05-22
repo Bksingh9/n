@@ -261,6 +261,29 @@ organization, with status counts and per-job actions:
 Lives alongside the queue internals via a small `services/jobs-admin.ts`
 so admin UI doesn't pull in the worker dispatch chain.
 
+## Third-party integrations
+
+Two free, no-auth APIs from the
+[public-apis](https://github.com/public-apis/public-apis) index are wired
+in. Both fail-open — a transient outage never blocks a host or applicant.
+
+**Nominatim (OpenStreetMap)** — `lib/integrations/geocode.ts`
+- Geocodes `venue_name + city` after event create; result cached on
+  `events.latitude / longitude / geocode_label / geocoded_at`.
+- Throttled to 1 req/sec via the existing `rate_limits` bucket per
+  Nominatim's usage policy.
+- Sends a meaningful `User-Agent` and a 5s timeout.
+- Public event page embeds an OSM iframe map when coordinates exist,
+  plus a fallback "Open on OpenStreetMap" link.
+
+**Disify** — `lib/integrations/email-validation.ts`
+- Checks the applicant's email on `/apply/[slug]` submission.
+- Local denylist of well-known burner domains runs first (no network),
+  Disify is consulted only for unknown domains.
+- 2.5s timeout; on any error or unexpected response we treat the email
+  as valid (`source: 'fail_open'`) so legitimate users never get
+  blocked by an upstream hiccup.
+
 ## Stripe webhook
 
 `/api/stripe/webhook` verifies the signature with `STRIPE_WEBHOOK_SECRET`,

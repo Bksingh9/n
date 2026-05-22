@@ -6,6 +6,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { createActivityEvent } from '@/lib/activity';
 import { enforceUsage, recordUsage } from '@/lib/usage';
 import { slugify } from '@/lib/utils';
+import { geocodeVenue } from '@/lib/integrations/geocode';
 
 export const CreateEventSchema = z.object({
   title: z.string().min(1).max(200),
@@ -77,7 +78,35 @@ export const createEvent = async (params: {
     }),
   ]);
 
+  // Best-effort geocode. Awaiting keeps the create request honest (the
+  // host sees the map appear on first navigation), but we never fail the
+  // event create on a geocode error.
+  await tryGeocodeEvent({
+    eventId: data.id,
+    venue: params.input.venue_name,
+    city: params.input.city,
+  });
+
   return { ok: true as const, eventId: data.id, slug: data.public_slug };
+};
+
+export const tryGeocodeEvent = async (params: {
+  eventId: string;
+  venue?: string | null;
+  city?: string | null;
+}): Promise<void> => {
+  const result = await geocodeVenue({ venue: params.venue ?? null, city: params.city ?? null });
+  if (!result) return;
+  const svc = createServiceClient();
+  await svc
+    .from('events')
+    .update({
+      latitude: result.latitude,
+      longitude: result.longitude,
+      geocode_label: result.label,
+      geocoded_at: new Date().toISOString(),
+    })
+    .eq('id', params.eventId);
 };
 
 export const publishEvent = async (params: {
